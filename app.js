@@ -33,7 +33,8 @@ const userSchema = new mongoose.Schema({
     email: String,
     password: String,
     googleId: String,
-    facebookId: String
+    facebookId: String,
+    secret: [String]
 });
 
 userSchema.plugin(passportLocalMongoose);
@@ -95,7 +96,7 @@ app.get("/auth/google",
 app.get("/auth/google/secrets", 
     passport.authenticate('google', { failureRedirect: '/login' }),
     function(req, res) {
-      // Successful authentication, redirect home.
+      // Successful authentication, redirect to secret page.
       res.redirect('/secrets');
     });
 
@@ -105,7 +106,7 @@ app.get('/auth/facebook',
 app.get('/auth/facebook/secrets',
     passport.authenticate('facebook', { failureRedirect: '/login' }),
     function(req, res) {
-      // Successful authentication, redirect home.
+      // Successful authentication, redirect to secret page.
       res.redirect('/secrets');
     });
 
@@ -148,15 +149,37 @@ app.route("/register")
 
 app.route("/secrets")
     .get(function(req,res){
-        if (req.isAuthenticated()) {
-            res.render("secrets")
-        } else {
-            res.render("login");
-        }
+        User.find({'secret':{$ne: null}}, function(err, usersWithSecret){
+            if (err) { console.log(err) }
+            else {
+                res.render("secrets", {usersWithSecret: usersWithSecret});
+            }
+        });
     });
 
 app.route("/logout")
     .get(function(req,res){
         req.logout();
         res.redirect("/");
+    });
+
+app.route("/submit")
+    .get(function(req,res){
+        if (req.isAuthenticated()) {
+            res.render("submit")
+        } else {
+            res.render("login");
+        }
     })
+    .post(function(req,res){
+        const userSecret = req.body.secret;
+        User.findById(req.user.id, function(err,user){
+            if (err) { console.log(err) }
+            else {
+                user.secret.push(userSecret);
+                user.save(function(err){
+                    res.redirect("/secrets");
+                });
+            }
+        });
+    });
